@@ -1,0 +1,2 @@
+predict = model.predict(y)
+classes = np.argmax(predict, axis=1)

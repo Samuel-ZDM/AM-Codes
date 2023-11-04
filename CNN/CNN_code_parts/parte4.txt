@@ -1,0 +1,12 @@
+model = Sequential()  # define que o modelo é composto de camadas sequências
+# Adicionando camadas
+model.add(Reshape((1,100,100), input_shape=(100, 100, 1)))  # define que todas as entradas serão tratadas como imagens 100x100, 1 canal
+model.add(Conv2D(20, (5, 5), input_shape=(1, 100, 100), activation='relu', padding='same'))  # define o uso de 20 filtros 5x5, função de ativação Relu
+model.add(MaxPooling2D(pool_size=(2, 2), padding='same'))  # define um downsize das imagens (50% para cada dimensão)
+model.add(Conv2D(10, (3, 3), activation='relu', padding='same'))  # define o uso de 10 filtros 3x3, função de ativação Relu
+model.add(Flatten())  # transforma a matriz 2D em um único vetor
+model.add(Dense(64, activation='relu'))  # conecta todas as saídas do vetor a uma rede FC de 64 neurônios, ativação Relu
+model.add(Dense(2, activation='softmax'))  # conecta os 64 neurônios da camada anterior a 2 neurônios (classes possíveis de saída), ativação Softmax (define a % de certeza)
+
+# Compilando o modelo
+model.compile(loss='categorical_crossentropy', optimizer='adam', metrics=['accuracy'])  # categorial_crossentropy serve para várias classes de saída (se não, seria binary_crossentropy)

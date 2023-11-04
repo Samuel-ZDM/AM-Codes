@@ -1,0 +1,9 @@
+### Essas linhas fazem a montagem do Meu Drive via código: ###
+# from google.colab import drive
+# drive.mount('/content/drive')
+
+# CURRDIR = os.path.dirname(__file__)
+CURRDIR = f"/content/drive/MyDrive/Colab Notebooks/ML class/"
+TRAINPATH = os.path.join(CURRDIR, "train/")
+FILETESTPATH = os.path.join(CURRDIR, "test/2.png")
+MODELFILEPATH = os.path.join(CURRDIR, "weights.hdf5")

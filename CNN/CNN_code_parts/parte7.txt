@@ -1,0 +1,7 @@
+checkpoint = tf.keras.callbacks.ModelCheckpoint(
+    MODELFILEPATH,
+    monitor='val_accuracy',
+    verbose=1,
+    mode='max')
+
+callbacks_list = [checkpoint]

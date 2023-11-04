@@ -1,0 +1,5 @@
+model.fit(
+    X_train,
+    steps_per_epoch=len(X_train),
+    epochs=20,
+    callbacks=callbacks_list)

@@ -1,0 +1,10 @@
+directory = f"/content/drive/MyDrive/Colab Notebooks/ML class/test"
+for filename in os.listdir(directory):
+    f = os.path.join(directory, filename)
+    img = load_img(f, target_size=(100, 100), color_mode='grayscale')
+    y = img_to_array(img)
+    y = np.expand_dims(y, axis=0)
+    predict = model.predict(y)
+    classes = np.argmax(predict, axis=1)
+    if(classes[0]==0): print(filename + " é um QUADRADO!")
+    else: print(filename + " é um TRIÂNGULO!")

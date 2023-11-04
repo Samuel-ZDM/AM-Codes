@@ -1,0 +1,2 @@
+if(classes[0]==0): print("\nQUADRADO!")
+else: print("\nTRIÂNGULO!")

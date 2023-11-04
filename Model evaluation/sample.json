@@ -1,0 +1,497 @@
+{
+  "cells": [
+    {
+      "cell_type": "markdown",
+      "metadata": {
+        "id": "D-M9GzriuyEb"
+      },
+      "source": [
+        "<h1><b>Utilizando recursos da biblioteca Scikit-Learn para avaliar modelos de Machine Learning</b></h1>\n",
+        "<h3>Prof. Dr. Rafael Rieder</h3>\n",
+        "<h4>Exemplo para aulas relacionadas ao Aprendizado de Máquina</h4>\n",
+        "<h5>Universidade de Passo Fundo. Última atualização: 27/10/2023</h5>"
+      ]
+    },
+    {
+      "cell_type": "code",
+      "execution_count": null,
+      "metadata": {
+        "id": "k2GVcTwYgYVx"
+      },
+      "outputs": [],
+      "source": [
+        "# Model Evaluation (Regression and Classification)\n",
+        "# Credits: Angelica Lo Duca\n",
+        "# Source: https://towardsdatascience.com/model-evaluation-in-scikit-learn-abce32ee4a99\n",
+        "\n",
+        "# Changed to use as a learning resource in ML class: Rafael Rieder\n",
+        "# University of Passo Fundo, 2023\n",
+        "\n",
+        "# Dataset: https://archive.ics.uci.edu/ml/datasets/wine+quality\n",
+        "# Sources:\n",
+        "# Dua, D. and Graff, C. (2019). UCI Machine Learning Repository [http://archive.ics.uci.edu/ml]. Irvine, CA: the University of California, School of Information and Computer Science.\n",
+        "# P. Cortez, A. Cerdeira, F. Almeida, T. Matos and J. Reis. Modeling wine preferences by data mining from physicochemical properties. In Decision Support Systems, Elsevier, 47(4):547-553, 2009.\n",
+        "\n",
+        "import pandas as pd\n",
+        "import numpy as np\n",
+        "import matplotlib.pyplot as plt\n",
+        "from sklearn.preprocessing import LabelEncoder\n",
+        "from sklearn.preprocessing import MinMaxScaler\n",
+        "from sklearn.model_selection import train_test_split\n",
+        "from sklearn.metrics import mean_absolute_error,r2_score,mean_squared_error\n",
+        "from sklearn.linear_model import LinearRegression, SGDRegressor\n",
+        "from sklearn.ensemble import RandomForestRegressor, RandomForestClassifier\n",
+        "from sklearn.metrics import precision_score,recall_score,f1_score,accuracy_score\n",
+        "from sklearn.metrics import confusion_matrix,ConfusionMatrixDisplay\n",
+        "from sklearn.metrics import roc_curve, auc, roc_auc_score, fbeta_score\n",
+        "from sklearn.metrics import average_precision_score, precision_recall_curve, PrecisionRecallDisplay\n",
+        "from sklearn.tree import DecisionTreeClassifier\n",
+        "from sklearn.discriminant_analysis import LinearDiscriminantAnalysis"
+      ]
+    },
+    {
+      "cell_type": "markdown",
+      "metadata": {
+        "id": "rZU9yBG_vx5d"
+      },
+      "source": [
+        "Leitura dos dois arquivos de dados (vinhos tinto e branco), e concatenando-os em um só dataset. Ao final, conferindo o número de colunas e a saída exibindo os primeiros e últimos 5 registros."
+      ]
+    },
+    {
+      "cell_type": "code",
+      "execution_count": null,
+      "metadata": {
+        "id": "tqEb1ozTtjH0"
+      },
+      "outputs": [],
+      "source": [
+        "targets = ['red', 'white']\n",
+        "df_list = []\n",
+        "df = pd.DataFrame()\n",
+        "mypath = f\"/content/drive/MyDrive/Colab Notebooks/SEU-DIRETORIO-AQUI\"\n",
+        "for target in targets:\n",
+        "    df_temp = pd.read_csv(mypath + f\"winequality-{target}.csv\", sep=';')\n",
+        "    df_temp['target'] = target\n",
+        "    df_list.append(df_temp)\n",
+        "    print(df_temp.shape)\n",
+        "df = pd.concat([df_list[0], df_list[1]])\n",
+        "\n",
+        "print(df.shape)\n",
+        "\n",
+        "df.head(5).append(df.tail(5))"
+      ]
+    },
+    {
+      "cell_type": "markdown",
+      "metadata": {
+        "id": "qwOAqz0Tw7lW"
+      },
+      "source": [
+        "Função para codificar e transformar dados categóricos em numéricos. Para tanto, trabalhamos apenas com colunas do tipo \"object\" (e evitar em mexer em dados que já são numéricos)."
+      ]
+    },
+    {
+      "cell_type": "code",
+      "execution_count": null,
+      "metadata": {
+        "id": "WmbsX_O9kaJV"
+      },
+      "outputs": [],
+      "source": [
+        "def transform_categorical(data):\n",
+        "    categories = (data.dtypes ==\"object\")\n",
+        "    cat_cols = list(categories[categories].index)\n",
+        "    label_encoder = LabelEncoder()\n",
+        "    for col in cat_cols:\n",
+        "        data[col] = label_encoder.fit_transform(data[col])"
+      ]
+    },
+    {
+      "cell_type": "markdown",
+      "metadata": {
+        "id": "ZDKUJtDZxPRx"
+      },
+      "source": [
+        "Função para dimensionar colunas numéricas (transformar as características dos dados, para deixá-las na mesma escala em um determinado intervalo - no caso, entre 0 e 1)."
+      ]
+    },
+    {
+      "cell_type": "code",
+      "execution_count": null,
+      "metadata": {
+        "id": "4GDD8scInrcS"
+      },
+      "outputs": [],
+      "source": [
+        "def scale_numerical(data):\n",
+        "    scaler = MinMaxScaler()\n",
+        "    data[data.columns] = scaler.fit_transform(data[data.columns])"
+      ]
+    },
+    {
+      "cell_type": "markdown",
+      "metadata": {
+        "id": "atz7R_V80wyI"
+      },
+      "source": [
+        "<h2><b>Avaliando modelos de regressão</b></h2>\n",
+        "<p>Métricas a serem aplicadas:</p>\n",
+        "\n",
+        "\n",
+        "*   Erro médio absoluto (MAE): a média da diferença entre o valor real e o previsto. Ele mede a distância entre as previsões e a saída real. Quanto menor o MAE, melhor o modelo;\n",
+        "*   Raiz quadrada do erro médio (RMSE): a raiz quadrada do erro quadrático médio (MSE) calcula a média do quadrado da diferença entre os valores reais e os previstos. Usada para expressar a acurácia dos resultados numéricos;\n",
+        "*   R² score (coeficiente de determinação): proporção de variância em Y que pode ser explicada por X. Mostra quanto o modelo se ajusta à amostra (quanto maior o R², melhor o ajuste).\n",
+        "\n"
+      ]
+    },
+    {
+      "cell_type": "markdown",
+      "metadata": {
+        "id": "KNebrZwd2aNP"
+      },
+      "source": [
+        "<u>Tarefa: prever o pH de cada registro, considerando as demais características.</u>\n",
+        "Começamos retirando a coluna de pH do conjunto, salvando essa estrutura em X.\n",
+        "Em seguida, salvamos só a coluna pH em Y."
+      ]
+    },
+    {
+      "cell_type": "code",
+      "execution_count": null,
+      "metadata": {
+        "id": "TH1i8Fhuo5Qw"
+      },
+      "outputs": [],
+      "source": [
+        "X = df.drop(\"pH\", axis = 1)\n",
+        "y = df[\"pH\"]"
+      ]
+    },
+    {
+      "cell_type": "markdown",
+      "metadata": {
+        "id": "re6iPIwG3EMO"
+      },
+      "source": [
+        "Transformando categorias em números, e normalizando números na escala 0-1:"
+      ]
+    },
+    {
+      "cell_type": "code",
+      "execution_count": null,
+      "metadata": {
+        "id": "H4_gMY1Ko5v1"
+      },
+      "outputs": [],
+      "source": [
+        "transform_categorical(X)\n",
+        "scale_numerical(X)\n",
+        "X.head(5).append(X.tail(5))"
+      ]
+    },
+    {
+      "cell_type": "markdown",
+      "metadata": {
+        "id": "Sg351p013DFa"
+      },
+      "source": [
+        "Dividindo os datasets X e Y em conjuntos de treino e teste.\n",
+        "Definiu-se o tamanho do conjunto de teste em 20% (logo, treino será 80%). Já \"random_state\" é usado para reproduzir o problema da mesma forma toda vez que é executado (controla o \"embaralhamento\")."
+      ]
+    },
+    {
+      "cell_type": "code",
+      "execution_count": null,
+      "metadata": {
+        "id": "2dgvkq4Eo7ni"
+      },
+      "outputs": [],
+      "source": [
+        "X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.20, random_state=42)"
+      ]
+    },
+    {
+      "cell_type": "markdown",
+      "metadata": {
+        "id": "9cTwPAH45MM0"
+      },
+      "source": [
+        "Função para rodar o modelo (fit), realizar as predições (predict) e calcular os scores de desempenho) para técnicas de Regressão aplicadas."
+      ]
+    },
+    {
+      "cell_type": "code",
+      "execution_count": null,
+      "metadata": {
+        "id": "0BhwrcMqo-FY"
+      },
+      "outputs": [],
+      "source": [
+        "def run_experiment_regression(model):\n",
+        "    # inserir código aqui"
+      ]
+    },
+    {
+      "cell_type": "markdown",
+      "metadata": {
+        "id": "1s_As9ZT5blX"
+      },
+      "source": [
+        "Construindo um modelo de Regressão Linear, e testando seu desempenho na predição de resultados:"
+      ]
+    },
+    {
+      "cell_type": "code",
+      "execution_count": null,
+      "metadata": {
+        "id": "z-hy8CLPpBZN"
+      },
+      "outputs": [],
+      "source": [
+        "# inserir código aqui"
+      ]
+    },
+    {
+      "cell_type": "markdown",
+      "metadata": {
+        "id": "QCl-Sw_U5iBD"
+      },
+      "source": [
+        "Construindo um modelo de Gradiente Descendente Estocástico, e testando seu desempenho na predição de resultados:"
+      ]
+    },
+    {
+      "cell_type": "code",
+      "execution_count": null,
+      "metadata": {
+        "id": "nsojw61GpDBn"
+      },
+      "outputs": [],
+      "source": [
+        "# inserir código aqui"
+      ]
+    },
+    {
+      "cell_type": "markdown",
+      "metadata": {
+        "id": "K7IfsL1gXQLb"
+      },
+      "source": [
+        "Construindo um modelo de regressão Random Forest, e testando seu desempenho na predição de resultados:"
+      ]
+    },
+    {
+      "cell_type": "code",
+      "execution_count": null,
+      "metadata": {
+        "id": "_gVTofvmWsZJ"
+      },
+      "outputs": [],
+      "source": [
+        "# inserir código aqui"
+      ]
+    },
+    {
+      "cell_type": "markdown",
+      "metadata": {
+        "id": "c7FnsL-o585y"
+      },
+      "source": [
+        "<h2><b>Avaliando modelos de classificação</b></h2>\n",
+        "<p>Métricas a serem aplicadas: </p>\n",
+        "\n",
+        "*   Matriz de confusão: gráfico para verificar verdadeiros positivos, verdadeiros negativos, falsos positivos e falsos negativos. Indica os erros e acertos do seu modelo, comparando com o resultado esperado;\n",
+        "*   Acurácia: medida intuitiva que indica uma performance geral do modelo. Dentre todas as classificações, quantas o modelo classificou corretamente;\n",
+        "*   Precisão: dentre todas as classificações de classe Positivo que o modelo fez, mostra quantas estão corretas. A precisão pode ser usada em uma situação em que os Falsos Positivos são considerados mais prejudiciais que os Falsos Negativos;\n",
+        "*   Revocação/ Sensibilidade (Recall): dentre todas as situações de classe Positivo como valor esperado, quantas estão corretas. Pode ser usada em uma situação em que os Falsos Negativos são considerados mais prejudiciais que os Falsos Positivos;\n",
+        "*   F1-Score: média harmônica entre precisão e recall. Ele será alto quando ambas as métricas base forem altas e similares, ou seja, é maior quando há um \"meio termo\" entre precisão e recall;\n",
+        "*   Curva ROC: mostra a relação entre a taxa de verdadeiros positivos (true positive rate — TPR) e a taxa de falsos positivos (false positive rate — FPR) para diferentes thresholds. Se a curva ROC de um modelo se aproxima bastante do ponto (0.0, 1.0), na parte alta e esquerda do gráfico, esse modelo é bom;\n",
+        "*   ROC AUC Score: para medir a proximidade com o ponto (0.0, 1.0) utiliza-se a área sob a curva ROC (area under the curve — AUC). Quanto mais próximo de 1.0 é o score da área sob a curva ROC, melhor é o modelo;\n",
+        "*   Curva Precision-Recall: plota a relação entre precisão e revocação à medida que o limite de decisão é alterado. Uma boa curva PR tem maior AUC (área sob a curva). A precisão ajuda a destacar a relevância dos resultados de revocação (quanto mais próximo das partes alta e direita do gráfico, melhor);\n",
+        "*   Average Precision (AP): área debaixo da curva de precision X recall. Útil para comparar diferentes modelos de detecção de objetos."
+      ]
+    },
+    {
+      "cell_type": "markdown",
+      "metadata": {
+        "id": "WcPlSTNl81_b"
+      },
+      "source": [
+        "<u>Tarefa: prever o tipo de vinho (tinto ou branco).</u>\n",
+        "Começamos retirando a coluna \"target\" do conjunto, salvando essa estrutura em X.\n",
+        "Em seguida, salvamos só a coluna \"target\" em Y."
+      ]
+    },
+    {
+      "cell_type": "code",
+      "execution_count": null,
+      "metadata": {
+        "id": "Jj-GvG0SpGYm"
+      },
+      "outputs": [],
+      "source": [
+        "X = df.drop(\"target\", axis = 1)\n",
+        "y = df[\"target\"]"
+      ]
+    },
+    {
+      "cell_type": "markdown",
+      "metadata": {
+        "id": "j26Lquxl9Hw5"
+      },
+      "source": [
+        "Transformando categorias em números, e normalizando números na escala 0-1:"
+      ]
+    },
+    {
+      "cell_type": "code",
+      "execution_count": null,
+      "metadata": {
+        "id": "CpZmpUkopM_X"
+      },
+      "outputs": [],
+      "source": [
+        "transform_categorical(X)\n",
+        "scale_numerical(X)"
+      ]
+    },
+    {
+      "cell_type": "markdown",
+      "metadata": {
+        "id": "C1-PHWr39LtB"
+      },
+      "source": [
+        "Transformar também as classes de vinho (0 e 1):"
+      ]
+    },
+    {
+      "cell_type": "code",
+      "execution_count": null,
+      "metadata": {
+        "id": "9T2xWAZgpQ-m"
+      },
+      "outputs": [],
+      "source": [
+        "label_encoder = LabelEncoder()\n",
+        "y = label_encoder.fit_transform(y)"
+      ]
+    },
+    {
+      "cell_type": "markdown",
+      "metadata": {
+        "id": "xuhK6BA39cq9"
+      },
+      "source": [
+        "Dividindo os datasets X e Y em conjuntos de treino e teste.\n",
+        "Definiu-se o tamanho do conjunto de teste em 20% (logo, treino será 80%). Já \"random_state\" é usado para reproduzir o problema da mesma forma toda vez que é executado (controla o \"embaralhamento\")."
+      ]
+    },
+    {
+      "cell_type": "code",
+      "execution_count": null,
+      "metadata": {
+        "id": "gw49GExTpTXs"
+      },
+      "outputs": [],
+      "source": [
+        "X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.20, random_state=42)"
+      ]
+    },
+    {
+      "cell_type": "markdown",
+      "metadata": {
+        "id": "lJLucwOW99sN"
+      },
+      "source": [
+        "Função para rodar o modelo (fit), realizar as predições (predict) e calcular os scores de desempenho) para técnicas de Classificação aplicadas."
+      ]
+    },
+    {
+      "cell_type": "code",
+      "execution_count": null,
+      "metadata": {
+        "id": "j9RmpAAwpaaE"
+      },
+      "outputs": [],
+      "source": [
+        "def run_experiment_classification(model, name):\n",
+        "    # inserir código aqui"
+      ]
+    },
+    {
+      "cell_type": "markdown",
+      "metadata": {
+        "id": "huU_QkSJ-300"
+      },
+      "source": [
+        "Construindo um modelo de Random Forest, e testando seu desempenho na predição de resultados:"
+      ]
+    },
+    {
+      "cell_type": "code",
+      "execution_count": null,
+      "metadata": {
+        "id": "o6VdvCFtqAem"
+      },
+      "outputs": [],
+      "source": [
+        "# inserir código aqui"
+      ]
+    },
+    {
+      "cell_type": "markdown",
+      "metadata": {
+        "id": "AQh0F3yf-9nM"
+      },
+      "source": [
+        "Construindo um modelo de Árvore de Decisão, e testando seu desempenho na predição de resultados:"
+      ]
+    },
+    {
+      "cell_type": "code",
+      "execution_count": null,
+      "metadata": {
+        "id": "TKkW7QTFqIDk"
+      },
+      "outputs": [],
+      "source": [
+        "# inserir código aqui"
+      ]
+    },
+    {
+      "cell_type": "markdown",
+      "metadata": {
+        "id": "Ia7LJubMYLOY"
+      },
+      "source": [
+        "Construindo um modelo de Análise Discriminante Linear, e testando seu desempenho na predição de resultados:"
+      ]
+    },
+    {
+      "cell_type": "code",
+      "execution_count": null,
+      "metadata": {
+        "id": "OVj4ysA0YL2_"
+      },
+      "outputs": [],
+      "source": [
+        "# inserir código aqui"
+      ]
+    }
+  ],
+  "metadata": {
+    "colab": {
+      "provenance": []
+    },
+    "kernelspec": {
+      "display_name": "Python 3",
+      "name": "python3"
+    },
+    "language_info": {
+      "name": "python"
+    }
+  },
+  "nbformat": 4,
+  "nbformat_minor": 0
+}

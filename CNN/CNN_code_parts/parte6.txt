@@ -1,0 +1,8 @@
+train_datagen = ImageDataGenerator(rescale=1./255,
+    horizontal_flip=True)
+
+X_train = train_datagen.flow_from_directory(
+    TRAINPATH,
+    target_size=(100, 100),
+    batch_size=5,
+    color_mode='grayscale')
